@@ -7,6 +7,7 @@ import io
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from sklearn.ensemble import RandomForestRegressor,ExtraTreesRegressor
 from IPython.display import display,HTML
 
@@ -16,6 +17,7 @@ from rdkit.Chem import inchi,AllChem,SaltRemover
 from rdkit import DataStructs
 from rdkit.ML.Descriptors import MoleculeDescriptors
 from mordred import Calculator, all_descriptors
+from scipy.stats import ttest_ind
 
 try:
     import obabel
@@ -207,7 +209,7 @@ def plot_isomer_ratings(Y_dream,CIDs,labels):
     plt.xlim(-0.5,20.5)
     plt.legend()
     plt.title('%s vs %s' % labels)
-    plt.show()
+    plt.show();
 
 
 def load_other_smiles(gdb11=False,
@@ -272,7 +274,7 @@ def load_data(source):
                     for smile in df.index]
         df = df.groupby(df.index).first() # Drop duplicates
         df['Pubchem ID #'] = df['Pubchem ID #'].astype(int)
-        df['Detection Threshold'] = df['Detection Threshold'].astype(float)
+        df['Normalized Detection Threshold'] = df['Normalized Detection Threshold'].astype(float)
         
         # Work with nonisomeric smiles in order to group isomers
         x = df.reset_index()
@@ -303,31 +305,38 @@ def load_data(source):
 def compare_smiles_lengths(smiles1, smiles2, labels):
     # Display comparison of molecular weights
     def len_hist(strings,color='k',label='lengths'):
-        plt.hist([len(x) for x in list(set(strings))],cumulative=False,histtype='step',color=color,
+        x = [len(x) for x in list(set(strings))]
+        plt.hist(x,cumulative=False,histtype='step',color=color,
                 normed=True,bins=np.linspace(0,50,50),label=label)
-    len_hist(smiles1,color='b',label=labels[0])
-    len_hist(smiles2,color='r',label=labels[1])
+        return x
+    b = len_hist(smiles1,color='b',label=labels[0])
+    r = len_hist(smiles2,color='r',label=labels[1])
+    t,p = ttest_ind(b,r)
+    print("t=%.3f, p=%.3g" % (t,p))
     plt.xlim(0,50)
     plt.xlabel('Length')
     plt.ylabel('Probability')
     plt.legend(loc=1)
     plt.title('SMILES string lengths')
-    plt.figure()
-    plt.show()
+    plt.show();
 
 def compare_molecular_weights(X1, X2, labels):
     # Display comparison of molecular sizes (based on SMILES strings) for DREAM and GDB molecules
     def len_hist(X,color='k',label='lengths'):
-        plt.hist(X['MW'].as_matrix(),cumulative=False,histtype='step',color=color,
+        x = X['MW'].as_matrix().ravel()
+        plt.hist(x,cumulative=False,histtype='step',color=color,
              normed=True,bins=np.linspace(0,500,50),label=label)
-    len_hist(X1,color='b',label=labels[0])
-    len_hist(X2,color='r',label=labels[1])
+        return x
+    b = len_hist(X1,color='b',label=labels[0])
+    r = len_hist(X2,color='r',label=labels[1])
+    t,p = ttest_ind(b,r)
+    print("t=%.3f, p=%.3g" % (t,p))
     plt.xlim(0,500)
     plt.xlabel('Molecular Weight')
     plt.ylabel('Probability')
     plt.legend(loc=1)
     plt.title('Molecular Weights')
-    plt.show()
+    plt.show();
 
 def create_smiles_file(smiles_lists):
     # Create file to use with PubChem Identifier Exchange to get CIDs
