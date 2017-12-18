@@ -16,7 +16,8 @@ from rdkit.Chem.Descriptors import MolWt
 from rdkit.Chem import inchi,AllChem,SaltRemover
 from rdkit import DataStructs
 from rdkit.ML.Descriptors import MoleculeDescriptors
-from mordred import Calculator, all_descriptors
+from mordred import Calculator
+from mordred import descriptors as mordred_descriptors
 from scipy.stats import ttest_ind
 
 try:
@@ -29,7 +30,10 @@ except ImportError:
     HAS_OBABEL = False
 
 DATA_HOME = '.' # Where the files downloaded from e.g. http://gdb.unibe.ch/downloads/ are located
-OP_HOME = '/Users/rgerkin/Dropbox/science/olfaction-prediction' # On GitHub at dream-olfaction/olfaction-prediction
+HOME = os.environ['HOME']
+HERE = os.path.realpath(os.path.dirname(__file__))
+print(HERE)
+OP_HOME = os.path.join(HERE,'olfaction-prediction') # On GitHub at dream-olfaction/olfaction-prediction
 #OP_HOME = '/home/jovyan/olfaction-prediction' # On GitHub at dream-olfaction/olfaction-prediction
 
 paths = [OP_HOME]
@@ -65,7 +69,7 @@ def test_rdkit_mordred():
 
 def smiles_to_mordred(smiles,features=None):
     # create descriptor calculator with all descriptors
-    calc = Calculator(all_descriptors())
+    calc = Calculator(mordred_descriptors)
     print("Convering SMILES string to Mol format...")
     mols = [Chem.MolFromSmiles(smi) for smi in smiles]
     print("Computing 3D coordinates...")
@@ -349,7 +353,7 @@ def make_predictions(clfs,X,descriptors):
     # Compute descriptor rating predictions for other molecules
     Y_predicted = pd.DataFrame(index=X.index,columns=descriptors)
     for descriptor in descriptors:
-        Y_predicted[descriptor] = clfs[descriptor].predict(X)
+        Y_predicted[descriptor] = clfs[descriptor].predict(X.as_matrix())
     return Y_predicted
 
 def get_ranks(predictions):
