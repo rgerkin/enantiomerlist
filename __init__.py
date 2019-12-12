@@ -213,7 +213,7 @@ def plot_isomer_ratings(Y_dream,CIDs,labels):
     plt.xlim(-0.5,20.5)
     plt.legend()
     plt.title('%s vs %s' % labels)
-    plt.show();
+    #plt.show();
 
 
 def load_other_smiles(gdb11=False,
