@@ -41,11 +41,11 @@ for path in paths:
     if path not in sys.path:
         sys.path.append(path)
 
-from opc_python.gerkin import dream
-from opc_python.utils import loading
+#from opc_python.gerkin import dream
+#from opc_python.utils import loading
 # Load descriptors, CIDs, and dilutions for DREAM molecules
-descriptors = loading.get_descriptors(format=True)
-descriptors_short = [x[:5] for x in descriptors]
+#descriptors = loading.get_descriptors(format=True)
+#descriptors_short = [x[:5] for x in descriptors]
 USE_DRAGON = False # If set to False, uses Mordred features instead of Dragon features
 SHADMANY_FILE = 'EnantiomerList - Sheet1.csv'
 
@@ -67,24 +67,36 @@ def test_rdkit_mordred():
     result = smiles_to_mordred([smile1,smile2])
     display(result)
 
-def smiles_to_mordred(smiles,features=None):
+def smiles_to_mordred(smiles, features=None):
     # create descriptor calculator with all descriptors
     calc = Calculator(mordred_descriptors)
     print("Convering SMILES string to Mol format...")
     mols = [Chem.MolFromSmiles(smi) for smi in smiles]
     print("Computing 3D coordinates...")
     s = SaltRemover.SaltRemover()
+    failed_embeddings = []
     for i,mol in enumerate(mols):
-        mol = s.StripMol(mol,dontRemoveEverything=True)
-        mol = Chem.AddHs(mol)
-        AllChem.Compute2DCoords(mol)
-        AllChem.EmbedMolecule(mol)
-        AllChem.UFFOptimizeMolecule(mol) # Is this deterministic?  
+        try:
+            mol = s.StripMol(mol,dontRemoveEverything=True)
+            mol = Chem.AddHs(mol)
+            AllChem.Compute2DCoords(mol)
+            result = AllChem.EmbedMolecule(mol, maxAttempts=10)
+            if result==0:  # Successful embedding
+                AllChem.UFFOptimizeMolecule(mol) # Is this deterministic?
+            else:
+                print("Removing %s due to failed embedding" % smiles[i])
+                failed_embeddings.append(i)
+        except:
+            print(mol)
+            print(smiles[i])
+            
+    smiles = [smile for i, smile in enumerate(smiles) if i not in failed_embeddings]
+    mols = [mol for i, mol in enumerate(mols) if i not in failed_embeddings]
     print("Computing Mordred features...")
     df = calc.pandas(mols)
     if features is not None:
         df = df[features] # Retain only the specified features
-    mordred = pd.DataFrame(df.as_matrix(),index=smiles,columns=df.columns)
+    mordred = pd.DataFrame(df.as_matrix(), index=smiles, columns=df.columns)
     print("There are %d molecules and %d features" % mordred.shape)
     return mordred
 
@@ -180,6 +192,7 @@ def get_dream_smiles(CIDs):
     df = pd.read_csv(os.path.join(OP_HOME,'data/CIDs_to_SMILES.txt'),header=None,
                                    delimiter='\t',names=['SMILES'])
     smiles_dream = list(df['SMILES'][CIDs])
+    print(smiles_dream)
     # Ensure that isomeric information is consistent.  
     smiles_dream = [Chem.MolToSmiles(Chem.MolFromSmiles(smile),isomericSmiles=True) \
                     for smile in smiles_dream]
@@ -220,6 +233,7 @@ def load_other_smiles(gdb11=False,
                       gdb13_fr=False,
                       fragranceDB=False,
                       shadmany=False,
+                      coleman=False,
                       min_atoms=3, # Minimum number of heavy atoms (1-11)
                       max_atoms=8, # Maximum number of heavy atoms (1-11)
                       smiles_remove=[]):
@@ -242,26 +256,44 @@ def load_other_smiles(gdb11=False,
         print("v molecules from FragranceDB (fragrance-like)...")
         df = pd.read_csv(os.path.join(DATA_HOME,'FragranceDB.FL.smi'),delimiter=' ',header=None)
         smiles += list(df[0])
+    #add a block with my name below too
     if shadmany:
         # Load Shadmany data
         print("Loading molecules from the Shadmany enantiomer collection...")
         df = load_data('shadmany')
         smiles += list(df.index)
+    if coleman:
+        df=load_data('coleman')
+        #May need to change the df part below, I just know it will not be the same as above where it says "df.index"
+        smiles += list(df['SMILES String'])
         
     # Ensure a standard SMILES format by converting to Mol and back
-    smiles = [Chem.MolToSmiles(Chem.MolFromSmiles(smile),isomericSmiles=True) \
-              for smile in smiles]
-    smiles = list(set(smiles)) # Remove duplicates
-    print("Loaded %d molecules" % len(smiles))
-    wildcard_smiles = [s for s in smiles if '*' in s]
+    #lines 261 to 267 disregard anything that is not a smile string, aka the trace of any molecule that does not have a smile string
+    newSmiles = []
+    #now everything that says newSmiles has been put in replacement of just "smiles"
+    if "SMILES String" in smiles:
+        smiles.remove('SMILES String')
+    for smile in smiles:
+        if str(smile) == "nan":
+            continue
+        else:
+            #print(smile)
+            result = Chem.MolFromSmiles(smile)
+            #print(type(result))
+            newSmiles.append(Chem.MolToSmiles(result))      
+#     smiles = [Chem.MolToSmiles(Chem.MolFromSmiles(smile),isomericSmiles=True) \
+#               for smile in smiles]
+    #newSmiles = list(set(newSmiles)) # Remove duplicates
+    print("Loaded %d molecules" % len(newSmiles))
+    wildcard_smiles = [s for s in newSmiles if '*' in s]
     if wildcard_smiles:
         print("Removing %d molecules with wildcards" % len())
-        smiles = list(set(smiles).difference(wildcard_smiles))
+        newSmiles = list(set(newSmiles).difference(wildcard_smiles))
     # Remove molecules that are also in the DREAM data, and make sure that both data sets 
     if smiles_remove:
-        smiles = list(set(smiles).difference(smiles_remove))
-        print("After removing excluded molecules, there are now %d molecules" % len(smiles))
-    return smiles
+        newSmiles = list(set(newSmiles).difference(smiles_remove))
+        print("After removing excluded molecules, there are now %d molecules" % len(newSmiles))
+    return newSmiles
 
 def load_data(source):
     if source == 'shadmany':
@@ -302,6 +334,22 @@ def load_data(source):
                 x = df.copy().iloc[i+1]
                 df.iloc[i+1] = df.iloc[i]
                 df.iloc[i] = x
+    elif source == 'coleman':
+        # Base URL of Google spreadsheets (for API access)
+        url = "https://spreadsheets.google.com/feeds/download/spreadsheets/Export"
+        # ID of the enantiomers spreadsheet
+        key = "1yo6iRZ8f6meKpdsjD4UAQ5CQrMFlwFDhBUKk0DFspIQ"
+        # Make a full URL from the above two things
+        full_url = '%s?key=%s&exportFormat=csv&gid=0' % (url,key)
+        # Get the data
+        response = requests.get(full_url)
+        # Make sure it worked
+        assert response.status_code == 200, 'Wrong status code'
+        # Turn that returned data into a string buffer that will behave like a file, so we can load it into Pandas
+        f = io.StringIO(str(response.content).replace("\\r\\n","\r").replace("b'",""))
+        # Load it into a Pandas dataframe
+        df = pd.read_csv(f)
+        # put that code block from the notebook that reads the spreadsheet and gets df
     else:
         df = None
     return df
