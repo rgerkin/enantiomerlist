@@ -152,6 +152,7 @@ def smiles_to_morgan(smiles,radius=5,features=None):
     mols = [Chem.MolFromSmiles(smi) for smi in smiles]
     fps = [AllChem.GetMorganFingerprint(mol,radius) for mol in mols]
     features = []
+    fp_ids = list()
     for fp in fps:
         fp_ids += list(fp.GetNonzeroElements().keys())
     fp_ids = list(set(fp_ids))
