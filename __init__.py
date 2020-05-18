@@ -45,7 +45,7 @@ def test_rdkit_mordred():
     result = smiles_to_mordred([smile1, smile2])
     display(result)
 
-    
+
 def load_data(source: str) -> pd.DataFrame:
     """Gets the data and saves it as a data frame
 
@@ -128,7 +128,7 @@ def smiles_to_morgan(smiles: str, radius: int = 5, features: list = None) -> pd.
         features (list, optional): [description]. Defaults to None.
 
     Returns:
-        [type]: Returns the dataframe of morgan features. Rows are the SMILES Strings and columns are the features for each SMILES String
+        [pd.DataFrame]: Returns the dataframe of morgan features. Rows are the SMILES Strings and columns are the features for each SMILES String
     """
     mols = [Chem.MolFromSmiles(smi) for smi in smiles]
     fps = [AllChem.GetMorganFingerprint(mol, radius) for mol in mols]
@@ -182,7 +182,7 @@ def load_other_smiles(gdb11=False,
     smiles = []
     if gdb11:
         # Load GDB-11 data
-        for n in range(min_atoms,max_atoms+1):
+        for n in range(min_atoms, max_atoms+1):
             print("Loading molecules with %d heavy atoms..." % n)
             df = pd.read_csv(os.path.join(DATA_HOME,'gdb11/gdb11_size%02d.smi') % n, delimiter = '\t', header = None)
             smiles += list(df[0])
@@ -232,7 +232,7 @@ def load_other_smiles(gdb11=False,
 
 # Using the SMILES Strings, this section extracts the mordred features if package is True, morgan features otherwise
 def calculate_features(half_dataset: pd.DataFrame, feature_library: str) -> pd.DataFrame:
-    """Caluculates the morgan or modred features on the dataframe with just the enantiomers 
+    """Caluculates the morgan or modred features on the dataframe with just the enantiomers
 
     Args:
         half_dataset (pd.DataFrame): The dataframe with just the enantiomer molecules
