@@ -230,6 +230,12 @@ def load_other_smiles(gdb11=False,
     return newSmiles
 
 
+def log_abs(x):
+    """This section creates the log_abs values for each enantiomer
+     """
+    return np.abs(np.log10(x['Normalized Detection Threshold'].values[1]/x['Normalized Detection Threshold'].values[0]))
+
+
 # Using the SMILES Strings, this section extracts the mordred features if package is True, morgan features otherwise
 def calculate_features(half_dataset: pd.DataFrame, feature_library: str) -> pd.DataFrame:
     """Caluculates the morgan or modred features on the dataframe with just the enantiomers
@@ -255,7 +261,7 @@ def calculate_features(half_dataset: pd.DataFrame, feature_library: str) -> pd.D
     return good_data
 
 
-def finite_features(whole_dataset -> pd.DataFrame) -> pd.DataFrame:
+def finite_features(whole_dataset : pd.DataFrame) -> pd.DataFrame:
     """Gets rid of the features that have null values
 
     Args:
@@ -279,6 +285,15 @@ def model(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
     Returns:
         [Numpy Array]: returns the mean, standarad deviation, and histogram for the model
     """
+    dataset = ""
+    # Tells us which features dataset we used
+    if whole_dataset.size < 400000:
+        dataset = "Mordred Features"
+    elif whole_dataset.size < 2000000:
+        dataset = "Morgan Features"
+    else:
+        dataset = "Both Morgan and Mordred Features"
+
     # The Y variable holds all the correct classification values
     # The X variable holds all the data that will be used learn the classification problem
     Y = whole_dataset["log_abs"].values
@@ -293,7 +308,11 @@ def model(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
         predicted = rfr.predict(X[test, :])
         rs[i] = np.corrcoef(predicted, Y[test])[0, 1]
     print("The mean is ", np.mean(rs), "The Standard deviation is ", np.std(rs)/np.sqrt(len(rs)))
-    plt.hist(rs, alpha=0.5)
+    plt.hist(rs, alpha=0.5, label=dataset)
+    plt.title("Correlation between trained and test data")
+    plt.xlabel("Correlational Value (r) ")
+    plt.ylabel("Number of Splits")
+    plt.legend()
     return rs
 
 
@@ -330,5 +349,9 @@ def model_average(whole_dataset1: pd.DataFrame, features_dataset1: pd.DataFrame,
         averaged = (predicted+predicted2)/2
         rs[i] = np.corrcoef(averaged, Y[test])[0, 1]
     print("The mean is ", np.mean(rs), " The Standard Deviation is ", np.std(rs)/np.sqrt(len(rs)))
-    plt.hist(rs, alpha=0.5)
-    return rs    
+    plt.hist(rs, alpha=0.5, label="The average of Mordred and Morgan")
+    plt.title("Correlation between trained and test data")
+    plt.xlabel("Correlational Value (r) ")
+    plt.ylabel("Number of Splits")
+    plt.legend()
+    return rs 
