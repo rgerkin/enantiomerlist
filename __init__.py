@@ -120,12 +120,12 @@ def smiles_to_mordred(smiles: str, features: list = None) -> pd.DataFrame:
 
 
 def smiles_to_morgan(smiles: str, radius: int = 5, features: list = None) -> pd.DataFrame:
-    """[Takes a list of SMILES strings and generates their respective morgan features]
+    """Takes a list of SMILES strings and generates their respective morgan features
 
     Args:
         smiles (str): list of SMILES strings
-        radius (int, optional): [description]. Defaults to 5.
-        features (list, optional): [description]. Defaults to None.
+        radius (int, optional): The number of atoms away from the center that can be considered apart of the fingerprint. Defaults to 5.
+        features (list, optional): Defaults to None.
 
     Returns:
         [pd.DataFrame]: Returns the dataframe of morgan features. Rows are the SMILES Strings and columns are the features for each SMILES String
@@ -148,13 +148,13 @@ def smiles_to_morgan(smiles: str, radius: int = 5, features: list = None) -> pd.
 
 
 def smiles_to_morgan_sim(smiles: str, ref_smiles: str, radius: int = 5, features: list = None) -> pd.DataFrame:
-    """[summary]
+    """Takes a list of SMILES strings and generates their respective morgan features
 
     Args:
         smiles (str): List of SMILES Strings 
-        ref_smiles (str): [description]
-        radius (int, optional): [description]. Defaults to 5.
-        features (list, optional): [description]. Defaults to None.
+        ref_smiles (str): A list of SMILES Strings
+        radius (int, optional): The number of atoms away from the center that can be considered apart of the fingerprint. Defaults to 5.
+        features (list, optional): Defaults to None.
 
     Returns:
         pd.DataFrame: [description]
