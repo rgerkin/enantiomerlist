@@ -349,9 +349,20 @@ def load_data(source):
         f = io.StringIO(str(response.content).replace("\\r\\n","\r").replace("b'",""))
         # Load it into a Pandas dataframe
         df = pd.read_csv(f)
+        df['SMILES String'] = df['SMILES String'].apply(lambda x: str(x))
         # put that code block from the notebook that reads the spreadsheet and gets df
     else:
         df = None
+    return df
+
+def fix_smiles_strings(df):
+    cids = df['Pubchem CID #'].unique()
+    from pyrfume.odorants import from_cids
+    x = from_cids(cids)
+    for item in x:
+        cid = item['CID']
+        smiles = item['IsomericSMILES']
+        df.loc[coleman_data['Pubchem ID #']==str(cid), 'SMILES String'] = smiles
     return df
 
 def compare_smiles_lengths(smiles1, smiles2, labels):
