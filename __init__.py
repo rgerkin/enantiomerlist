@@ -9,9 +9,11 @@ import scipy as py
 import matplotlib.pyplot as plt
 import matplotlib as mpl  # Need this line
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
 from IPython.display import display
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import LeaveOneOut
+from sklearn.model_selection import cross_val_predict
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, SaltRemover
@@ -20,6 +22,8 @@ from mordred import Calculator
 from mordred import descriptors as mordred_descriptors
 
 from pyrfume.odorants import all_smiles
+
+import seaborn as sns
 
 
 DATA_HOME = '.'  # Where the files downloaded from e.g. http://gdb.unibe.ch/downloads/ are located
@@ -290,38 +294,41 @@ def model(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
     dataset = ""
     # Tells us which features dataset we used
     if whole_dataset.size < 400000:
-        dataset = "Mordred Features"
+        dataset = "In-Sample prediction R"
     elif whole_dataset.size < 2000000:
-        dataset = "Morgan Features"
+        dataset = "In-Sample prediction R"
     else:
-        dataset = "Both Morgan and Mordred Features"
+        dataset = "Out-of-Sample prediction R"
 
     # The Y variable holds all the correct classification values
     # The X variable holds all the data that will be used learn the classification problem
     Y = whole_dataset["log_abs"].values
     X = whole_dataset[features_dataset].astype(float).values  
     # This will help create a random split for training and testing data
-    rs = np.zeros(100)
+    rs = pd.Series(index = np.logspace(-3,2,6), dtype= float)
     ss = ShuffleSplit(n_splits=len(rs), random_state=0)
 
-    counting_carvone = 0
-    counting_glutamate = 0
-    for i, (train, test) in enumerate(ss.split(X)):
-        rfr = RandomForestRegressor(n_estimators=100, max_features=25)
-        rfr.fit(X[train, :], Y[train])
-        predicted = rfr.predict(X[test, :])
-        rs[i] = np.corrcoef(predicted, Y[test])[0, 1]
-        counting_carvone += predicted[1]
-        counting_glutamate  += predicted[9]
-    print(counting_carvone/100)
-    print(counting_glutamate/100)
-    print("The mean is ", np.mean(rs), "The Standard Error is ", np.std(rs)/np.sqrt(len(rs)))
-    plt.hist(rs, alpha=0.5, label=dataset)
-    plt.title("Correlation of Predicted Odor Divergence")
-    plt.xlabel("Correlational Value (r) ")
-    plt.ylabel("Number of Enantiomeric Pairs")
+    loo = LeaveOneOut()
+
+    for C in rs.index:
+        svr_model = SVR(C=C)
+        predicted = cross_val_predict(svr_model, X, Y, n_jobs=-1, cv=loo)
+        rs[C] = np.corrcoef(predicted, Y)[0, 1]
+
+    highest_C_value = 0
+    for x, y in rs.items():
+        if y == max(rs):
+            highest_C_value = x
+    whole_dataset["predicted"] = cross_val_predict(SVR(C=100), X, Y, n_jobs=-1, cv=loo)
+
+    rs.plot(alpha=0.5, label=dataset)
+    sns.set_style("darkgrid")
+    plt.xlabel("SVR C ")
+    plt.xscale('log')
+    plt.ylabel("Correlation (Predicted vs Observed)")
+    #plt.ylim(0,0.8)
     plt.legend()
-    return rs
+    return rs, whole_dataset
 
 def model_average(whole_dataset1: pd.DataFrame, features_dataset1: pd.DataFrame, whole_dataset2: pd.DataFrame, features_dataset2: pd.DataFrame):
     """Generates a Random Forest Model on the average of the predicted values of the mordred and morgan dataframes
