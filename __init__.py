@@ -319,7 +319,8 @@ def model(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
     for x, y in rs.items():
         if y == max(rs):
             highest_C_value = x
-    whole_dataset["predicted"] = cross_val_predict(SVR(C=100), X, Y, n_jobs=-1, cv=loo)
+    predicted_values = cross_val_predict(SVR(C=100), X, Y, n_jobs=-1, cv=loo)
+    whole_dataset["predicted"] = [10**x for x in predicted_values]
 
     rs.plot(alpha=0.5, label=dataset)
     sns.set_style("darkgrid")
