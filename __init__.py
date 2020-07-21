@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestRegressor
 from IPython.display import display
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import LeaveOneOut
+from tqdm.auto import tqdm
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, SaltRemover
@@ -407,18 +408,17 @@ def leave_one_out(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
     Y = whole_dataset["log_abs"].values
     X = whole_dataset[features_dataset].astype(float).values  
     # This will help create a random split for training and testing data
-    predictedValues = np.zeros(172)
+    predictedValues = np.zeros(X.shape[0])
     loo = LeaveOneOut()
 
-    for i, (train, test) in enumerate(loo.split(X)):
-        print(i)
+    for i, (train, test) in enumerate(tqdm(loo.split(X))):
         rfr = RandomForestRegressor(n_estimators=100, max_features=25)
         rfr.fit(X[train, :], Y[train])
-        predictedValues[i] = rfr.predict(X[test, :])
+        predictedValues[test[0]] = rfr.predict(X[test, :])
     correlationCoefficient = np.corrcoef(predictedValues, Y)[0,1]
     plt.hist(correlationCoefficient, alpha=0.5, label=dataset)
     # plt.title("Correlation of Predicted Odor Divergence")
     # plt.xlabel("Correlational Value (r) ")
     # plt.ylabel("Number of Enantiomeric Pairs")
     plt.legend()
-    return correlationCoefficient
+    return correlationCoefficient, predictedValues
