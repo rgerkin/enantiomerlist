@@ -226,7 +226,7 @@ half_coleman_data
 # combined = a.model(both, both_features)
 
 
-# In[176]:
+# In[179]:
 
 
 #Two models are represented here, one shows a test on mordred features and the other shows a test on morgan features
@@ -235,14 +235,14 @@ combined_features = a.model(both, both_features)
 morgan_rs, predicted_values = a.model(morgan_data, finite_morgan)
 
 
-# In[84]:
+# In[181]:
 
 
 plt.scatter(predicted_values["log_abs"], predicted_values["predict"])
 #plt.xticks([0,1,2,3], ["1x", "10x", "100x", "1000x"])
 
 
-# In[260]:
+# In[182]:
 
 
 import matplotlib.pyplot as plt
@@ -258,34 +258,18 @@ plt.xlabel("\n Fold Difference in Detection Threshold between Enantiomers")
 plt.ylabel("Number of Enantiomeric Pairs")
 
 
-# In[173]:
-
-
-#print(x for x in half_coleman_data["log_abs"] if x < 0.4)
-for x in predicted_values["log_abs"]:
-    if x < 0.3:
-        print(x)
-        
-
-
-# In[174]:
-
-
-predicted_values.reset_index()
-
-
-# In[178]:
+# In[190]:
 
 
 columns = {"old model": [0], "new model": [0], "actual ratio": [0]}
 predicted_models = pd.DataFrame(data=columns, index=predicted_values["Molecule Name"])
 predicted_models.iloc[:,0] = 1
-predicted_models.iloc[:,1] = predicted_values["predict"].values
+predicted_models.iloc[:,1] = predicted_values["predicted"].values
 predicted_models.iloc[:,2] = ["%.4g"%(10**x) for x in predicted_values["log_abs"]]
 predicted_models
 
 
-# In[172]:
+# In[193]:
 
 
 names = ["(4R)-(-)-carvone/(4S)-(+)-carvone", "(3R)-(-)-linalool/(3S)-(-)linalool"]
