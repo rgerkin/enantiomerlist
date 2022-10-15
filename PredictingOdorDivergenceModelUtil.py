@@ -42,6 +42,16 @@ for path in paths:
 smile1 = 'OC[C@@H](O1)[C@@H](O)[C@H](O)[C@@H]2[C@@H]1c3c(O)c(OC)c(O)cc3C(=O)O2'
 smile2 = 'CC(=O)NCCC1=CNc2c1cc(OC)cc2'
 
+import seaborn as sns
+def fold_difference(df):
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(4,5.5))
+    df_with_log_abs = df[df["log_abs"]<50]
+    plt.hist(df_with_log_abs["log_abs"], bins=25, alpha=0.8);
+    plt.xticks([0,1,2,3], ["1x", "10x", "100x", "1000x"])
+    plt.xlabel("\nFold Difference in Detection\nThreshold between Enantiomers")
+    plt.ylabel("Number of Enantiomeric Pairs")
+    plt.plot()
 
 def test_rdkit_mordred():
     """[This function shows the mordred features for two random smiles string; The purpose here is to demonstrate how the mordred library works]
@@ -243,6 +253,9 @@ def log_abs(x):
      """
     return np.abs(np.log10(x['Normalized Detection Threshold'].values[1]/x['Normalized Detection Threshold'].values[0]))
 
+def harmonic(x):
+    return np.log10(1/np.mean(1/x['Normalized Detection Threshold'].values))
+
 
 # Using the SMILES Strings, this section extracts the mordred features if package is True, morgan features otherwise
 def calculate_features(half_dataset: pd.DataFrame, feature_library: str) -> pd.DataFrame:
@@ -261,10 +274,8 @@ def calculate_features(half_dataset: pd.DataFrame, feature_library: str) -> pd.D
     if feature_library.lower() == "mordred":
         all_features = smiles_to_mordred(half_dataset["SMILES String"].values)
     elif feature_library.lower() == "morgan":
-        print("here")
         smiles = all_smiles()
         assert all([isinstance(s, str) for s in smiles]), "there are non string values"
-        print("there")
         all_features = smiles_to_morgan_sim(half_dataset['SMILES String'].values, all_smiles())
     else:
         raise Exception("No such Library : %s "%feature_library)
@@ -432,3 +443,73 @@ def leave_one_out(whole_dataset: pd.DataFrame, features_dataset: pd.DataFrame):
     # plt.ylabel("Number of Enantiomeric Pairs")
     plt.legend()
     return correlationCoefficient, predictedValues
+
+def create_model(Xn, y):
+    import pandas as pd
+    from scipy.stats import pearsonr, spearmanr
+    from sklearn.model_selection import cross_val_predict, LeaveOneOut
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.svm import SVR
+    from sklearn.preprocessing import MinMaxScaler, StandardScaler 
+    from sklearn.linear_model import ElasticNet
+    from tqdm.auto import tqdm
+
+    #Xn = pd.DataFrame(MinMaxScaler().fit_transform(X), index=X.index, columns=X.columns)
+    #enr = ElasticNet(alpha=0, l1_ratio=1)
+    #rfr = RandomForestRegressor(n_estimators=100)
+    Cs = np.logspace(-3, 3, 13)
+    rs_in = pd.Series(index=Cs, dtype=float)
+    rs_out = pd.Series(index=Cs, dtype=float)
+    rhos_out = pd.Series(index=Cs, dtype=float)
+    
+    for C in tqdm(Cs):
+        svr = SVR(C=C, kernel='rbf')
+        clf = svr
+        #y_predict = cross_val_predict(rfr, Xn, y, cv=LeaveOneOut(), n_jobs=-1)
+        clf.fit(Xn, y)
+        y_predict_in = clf.predict(Xn)
+        y_predict_out = cross_val_predict(clf, Xn, y, cv=LeaveOneOut(), n_jobs=-1)
+        y_predict_in = np.clip(y_predict_in, 0, np.inf)
+        y_predict_out = np.clip(y_predict_out, 0, np.inf)
+        rs_in[C] = pearsonr(y, y_predict_in)[0]
+        rs_out[C] = pearsonr(y, y_predict_out)[0]
+        rhos_out[C] = spearmanr(y, y_predict_out)[0]
+
+    plt.figure(figsize=(5, 5))
+    rs_in.plot(label='In-sample prediction R')
+    rs_out.plot(label='Out-of-sample prediction R')
+    rhos_out.plot(label=r'Out-of-sample prediction $\rho$')
+    plt.xscale('log')
+    plt.ylim(0, 1)
+    plt.ylabel('Correlation\n(predicted vs observed)')
+    plt.xlabel('C (SVR hyperparameter)')
+    plt.legend(fontsize=10)
+
+def cross_val(Xn, y):
+    from sklearn.model_selection import cross_val_predict
+    from sklearn.model_selection import LeaveOneOut
+    from sklearn.svm import SVR
+    sns.set_style('whitegrid')
+    svr = SVR(C=10, kernel='rbf')
+    svr.fit(Xn, y)
+    y_predict = cross_val_predict(svr, Xn, y, cv=LeaveOneOut(), n_jobs=-1)
+    y_predict = np.clip(y_predict, 0, np.inf)
+    plt.figure(figsize=(5, 5))
+    plt.scatter(y, y_predict, alpha=0.3)
+    #maxx = y.max()*1.01
+    #plt.plot([0, maxx], [0, maxx], '--')
+    plt.plot([0, 4], [0, 4], '--')
+    plt.xlim(0, 4)
+    plt.ylim(0, 4)
+    #plt.xlim(0.9, maxx)
+    #plt.ylim(0.9, maxx)
+    plt.title('R = %.2g' % np.corrcoef(y, y_predict)[0, 1])
+    #ticks = range(5)
+    #plt.xticks(ticks)
+    #plt.yticks(ticks)
+    plt.xticks([1,2,3,4], ["1x", "10x", "100x", "1000x"])
+    plt.yticks([1,2,3,4], ["1x", "10x", "100x", "1000x"])
+    # plt.xticks(ticks, ['%d' % 10**x for x in ticks])
+    # plt.yticks(ticks, ['%d' % 10**x for x in ticks])
+    plt.xlabel('Actual Detection Threshold Ratio')
+    plt.ylabel('Predicted Detection\nThreshold Ratio')
